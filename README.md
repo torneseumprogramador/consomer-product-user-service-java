@@ -2,6 +2,8 @@
 
 Este projeto é um microserviço Java (Spring Boot) que consome mensagens de um tópico Kafka, processa os dados e envia requisições para APIs de usuários e produtos.
 
+![Arquitetura de Microserviços](microservicos.jpg)
+
 ## Objetivo
 
 - Consumir mensagens do Kafka contendo informações de produto e usuário.
@@ -64,17 +66,3 @@ O serviço espera um Kafka rodando em `localhost:9092` (ajuste em `application.y
 ## Limpar mensagens do Kafka
 
 Use o script `clear-kafka-topic.sh` para limpar todas as mensagens do tópico:
-
-```sh
-chmod +x clear-kafka-topic.sh
-./clear-kafka-topic.sh
-```
-
-## Observações
-- O serviço roda na porta 8082 por padrão.
-- Não expõe endpoints HTTP, é apenas um consumidor/processador.
-- O commit do offset Kafka só ocorre após sucesso total do processamento.
-
----
-
-Se precisar de mais detalhes ou exemplos, consulte os arquivos fonte ou abra uma issue! 
