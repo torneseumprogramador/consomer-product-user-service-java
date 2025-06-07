@@ -13,16 +13,20 @@ import com.consumerservice.dtos.UserDTO;
 import com.consumerservice.dtos.ProductDTO;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.consumerservice.model_views.User;
+import org.springframework.beans.factory.annotation.Value;
 
 @Service
 public class KafkaConsumerService {
 
     private final RestTemplate restTemplate = new RestTemplate();
-    private static final String USER_API_URL = "http://localhost:8080/users";
-    private static final String PRODUCT_API_URL = "http://localhost:8081/products";
+    @Value("${spring.kafka.consumer.user-api-url}")
+    private String userApiUrl;
+
+    @Value("${spring.kafka.consumer.product-api-url}")
+    private String productApiUrl;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @KafkaListener(topics = "product-user-topic", groupId = "consumer-product-user-service-group")
+    @KafkaListener(topics = "${spring.kafka.consumer.topic}", groupId = "${spring.kafka.consumer.group-id}")
     public void listen(ConsumerRecord<String, String> record) {
         String payload = record.value();
         System.out.println("Mensagem recebida do Kafka: " + payload);
@@ -39,7 +43,7 @@ public class KafkaConsumerService {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<UserDTO> userRequest = new HttpEntity<>(userDTO, headers);
-            ResponseEntity<String> userResponse = restTemplate.postForEntity(USER_API_URL, userRequest, String.class);
+            ResponseEntity<String> userResponse = restTemplate.postForEntity(userApiUrl, userRequest, String.class);
             System.out.println("Resposta da API de usuários: " + userResponse.getStatusCode() + " - " + userResponse.getBody());
 
             // 4. Obter o objeto User do usuário criado
@@ -48,8 +52,7 @@ public class KafkaConsumerService {
                 user = objectMapper.readValue(userResponse.getBody(), User.class);
             }
             if (user == null || user.getId() == null || user.getId() == 0) {
-                System.err.println("Não foi possível obter o usuário criado.");
-                return;
+                throw new RuntimeException("Não foi possível obter o usuário criado.");
             }
 
             // 5. Montar ProductDTO
@@ -62,11 +65,16 @@ public class KafkaConsumerService {
 
             // 6. Criar produto
             HttpEntity<ProductDTO> productRequest = new HttpEntity<>(productDTO, headers);
-            ResponseEntity<String> productResponse = restTemplate.postForEntity(PRODUCT_API_URL, productRequest, String.class);
+            ResponseEntity<String> productResponse = restTemplate.postForEntity(productApiUrl, productRequest, String.class);
             System.out.println("Resposta da API de produtos: " + productResponse.getStatusCode() + " - " + productResponse.getBody());
+
+            if (!productResponse.getStatusCode().is2xxSuccessful()) {
+                throw new RuntimeException("Falha ao criar produto: " + productResponse.getBody());
+            }
         } catch (Exception e) {
             System.err.println("Erro no processamento da mensagem: " + e.getMessage());
             e.printStackTrace();
+            throw new RuntimeException(e); // relança para o Kafka tentar novamente
         }
     }
 } 
